@@ -1,0 +1,200 @@
+#!/usr/bin/env python3
+import os
+import re
+import sys
+import socket
+import platform
+import subprocess
+
+LOGO = [
+    "⠀⠀⠀⠀⢀⡠⠤⠔⢲⢶⡖⠒⠤⢄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+    "⠀⠀⣠⡚⠁⢀⠀⠀⢄⢻⣿⠀⠀⠀⡙⣷⢤⡀⠀⠀⠀⠀⠀⠀",
+    "⠀⡜⢱⣇⠀⣧⢣⡀⠀⡀⢻⡇⠀⡄⢰⣿⣷⡌⣢⡀⠀⠀⠀⠀",
+    "⠸⡇⡎⡿⣆⠹⣷⡹⣄⠙⣽⣿⢸⣧⣼⣿⣿⣿⣶⣼⣆⠀⠀⠀",
+    "⣷⡇⣷⡇⢹⢳⡽⣿⡽⣷⡜⣿⣾⢸⣿⣿⣿⣿⣿⣿⣿⣷⣄⠀",
+    "⣿⡇⡿⣿⠀⠣⠹⣾⣿⣮⠿⣞⣿⢸⣿⣛⢿⣿⡟⠯⠉⠙⠛⠓",
+    "⣿⣇⣷⠙⡇⠀⠁⠀⠉⣽⣷⣾⢿⢸⣿⠀⢸⣿⢿⠀⠀⠀⠀⠀",
+    "⡟⢿⣿⣷⣾⣆⠀⠀⠘⠘⠿⠛⢸⣼⣿⢖⣼⣿⠘⡆⠀⠀⠀⠀",
+    "⠃⢸⣿⣿⡘⠋⠀⠀⠀⠀⠀⠀⣸⣿⣿⣿⣿⣿⡆⠇⠀⠀⠀⠀",
+    "⠀⢸⡿⣿⣇⠀⠈⠀⠤⠀⠀⢀⣿⣿⣿⣿⣿⣿⣧⢸⠀⠀⠀⠀",
+    "⠀⠈⡇⣿⣿⣷⣤⣀⠀⣀⠔⠋⣿⣿⣿⣿⣿⡟⣿⡞⡄⠀⠀⠀",
+    "⠀⠀⢿⢸⣿⣿⣿⣿⣿⡇⠀⢠⣿⡏⢿⣿⣿⡇⢸⣇⠇⠀⠀⠀",
+    "⠀⠀⢸⡏⣿⣿⣿⠟⠋⣀⠠⣾⣿⠡⠀⢉⢟⠷⢼⣿⣿⠀⠀⠀",
+    "⠀⠀⠈⣷⡏⡱⠁⠀⠊⠀⠀⣿⣏⣀⡠⢣⠃⠀⠀⢹⣿⡄⠀⠀",
+    "⠀⠀⠘⢼⣿⠀⢠⣤⣀⠉⣹⡿⠀⠁⠀⡸⠀⠀⠀⠈⣿⡇⠀⠀",
+]
+
+# ---------- Цвета ----------
+C_RESET, C_BOLD = "\033[0m", "\033[1m"
+C_PINK,  C_CYAN  = "\033[95m", "\033[96m"
+C_GREEN, C_DIM   = "\033[92m", "\033[90m"
+
+IS_DARWIN = sys.platform == "darwin"
+
+
+def run(cmd):
+    """Запустить команду, вернуть stdout или None."""
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=5).stdout.strip()
+    except Exception:
+        return None
+
+
+def key_value(key, value):
+    return f"{C_CYAN}{C_BOLD}{key}{C_RESET}: {value}"
+
+
+def get_user_host():
+    return f"{C_GREEN}{C_BOLD}{os.environ.get('USER', os.environ.get('LOGNAME', 'user'))}" \
+           f"{C_RESET}{C_PINK}@{C_RESET}{C_GREEN}{socket.gethostname()}{C_RESET}"
+
+
+def get_os_name():
+    if IS_DARWIN:
+        name = run(["sw_vers", "-productName"]) or "macOS"
+        ver = run(["sw_vers", "-productVersion"]) or ""
+        return f"{name} {ver}".strip()
+    try:
+        pretty = platform.system()
+        with open("/etc/os-release", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("PRETTY_NAME="):
+                    pretty = line.split("=", 1)[1].strip().strip('"')
+                    break
+        return pretty
+    except Exception:
+        return f"{platform.system()} {platform.release()}"
+
+
+def get_kernel():
+    if IS_DARWIN:
+        return run(["uname", "-r"]) or platform.release()
+    return platform.release()
+
+
+def get_uptime():
+    if IS_DARWIN:
+        secs = run(["sysctl", "-n", "kern.boottime"])
+        try:
+            boot = int(re.search(r"sec = (\d+)", secs).group(1))
+            secs = int(time.time()) - boot
+        except Exception:
+            return "unknown"
+    else:
+        try:
+            with open("/proc/uptime", encoding="utf-8") as f:
+                secs = int(float(f.read().split()[0]))
+        except Exception:
+            return "unknown"
+    d, secs = divmod(secs, 86400)
+    h, m = divmod(secs, 3600)[0], divmod(secs, 3600)[1] // 60
+    return (f"{d} дн, " if d else "") + f"{h:02d}:{m:02d}"
+
+
+def get_cpu():
+    if IS_DARWIN:
+        cpu = run(["sysctl", "-n", "machdep.cpu.brand_string"]) or "Unknown"
+    else:
+        cpu = "Unknown"
+        try:
+            with open("/proc/cpuinfo", encoding="utf-8") as f:
+                m = re.search(r"model name\s*:\s*(.+)", f.read())
+                if m:
+                    cpu = m.group(1)
+        except Exception:
+            pass
+    return f"{cpu} ({os.cpu_count() or '?'} потоков)"
+
+
+def get_ram():
+    try:
+        if IS_DARWIN:
+            total = int(run(["sysctl", "-n", "hw.memsize"])) / 1024**3
+            used = total  
+            return f"{total:.1f} ГиБ"
+        info = {}
+        with open("/proc/meminfo", encoding="utf-8") as f:
+            for line in f:
+                k, v = line.split(":", 1)
+                info[k.strip()] = int(v.strip().split()[0]) / 1024**2  
+        total, avail = info["MemTotal"], info.get("MemAvailable", info.get("MemFree", 0))
+        return f"{total - avail:.1f} / {total:.1f} ГиБ"
+    except Exception:
+        return "unknown"
+
+
+def get_gpu():
+    if IS_DARWIN:
+        return "Apple GPU (M-series/Intel) — детали: system_profiler SPDisplaysDataType"
+    out = run(["sh", "-c", "lspci 2>/dev/null | grep -Ei 'vga|3d controller'"])
+    if out:
+        return re.sub(r"^\w+:\w+.\d+ (VGA compatible controller|3D controller): ", "", out.splitlines()[0]).strip()
+    return "Unknown (установите lspci)"
+
+
+def get_shell():
+    return os.environ.get("SHELL") or os.environ.get("TERM_PROGRAM", "unknown")
+
+
+def get_de():
+    if IS_DARWIN:
+        return run(["defaults", "read", "com.apple.finder", "CreateDesktop"]) is not None and "Aqua (macOS Desktop)" or "Aqua"
+    return os.environ.get("XDG_CURRENT_DESKTOP") or os.environ.get("DESKTOP_SESSION") or "unknown"
+
+
+def get_term():
+    return os.environ.get("TERM_PROGRAM") or os.environ.get("TERM", "unknown")
+
+
+def get_packages():
+    managers = [("dpkg", "dpkg -l 2>/dev/null | grep -c '^ii'"),
+                ("pacman", "pacman -Qq 2>/dev/null | wc -l"),
+                ("rpm", "rpm -qa 2>/dev/null | wc -l"),
+                ("apk", "apk info 2>/dev/null | wc -l"),
+                ("flatpak", "flatpak list 2>/dev/null | wc -l"),
+                ("snap", "snap list 2>/dev/null | tail -n +2 | wc -l")]
+    for name, cmd in managers:
+        if run(["sh", "-c", f"command -v {name} >/dev/null 2>&1"]) is not None:
+            count = run(["sh", "-c", cmd])
+            if count and count.strip().isdigit():
+                return f"{count.strip()} ({name})"
+    return "unknown"
+
+
+def get_colors_bar():
+    # Классическая полоска цветов fastfetch
+    blocks = [f"\033[4{i}m   " for i in range(8)]
+    blocks += ["\033[0m  "] + [f"\033[10{i}m   " for i in range(8)]
+    return "".join(blocks) + C_RESET
+
+
+def main():
+    sep = f"{C_PINK}──────────────────────────────{C_RESET}"
+    info = [
+        get_user_host(),
+        sep,
+        key_value("OS",        get_os_name()),
+        key_value("Ядро",      get_kernel()),
+        key_value("Аптайм",    get_uptime()),
+        key_value("CPU",       get_cpu()),
+        key_value("RAM",       get_ram()),
+        key_value("GPU",       get_gpu()),
+        key_value("Пакеты",    get_packages()),
+        key_value("Shell",     get_shell()),
+        key_value("DE/WM",     get_de()),
+        key_value("Терминал",  get_term()),
+        sep,
+        get_colors_bar(),
+    ]
+
+    width = max(len(line) for line in LOGO)
+    n = max(len(LOGO), len(info))
+    for i in range(n):
+        left = f"{C_PINK}{LOGO[i]}{C_RESET}" if i < len(LOGO) else " " * width
+        right = info[i] if i < len(info) else ""
+        print(f"{left:<{width + 20}} {right}")
+
+
+if __name__ == "__main__":
+    import time  
+    main()
