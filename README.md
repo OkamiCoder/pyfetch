@@ -1,7 +1,7 @@
 # 💻 pyfetch
 
 <p>
-  <img src="./assets/banner.png" alt="project banner" width="60%">
+  <img src="./assets/banner.png" alt="project banner" width="100%">
 </p>
 
 A lightweight, cross-platform system information fetching tool written in Python. `pyfetch` detects your operating system and displays elegant system statistics directly in your terminal.
