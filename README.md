@@ -16,7 +16,7 @@ A lightweight, cross-platform system information fetching tool written in Python
 
 ### Prerequisites
 
-- Python 3.x installed on your system.
+- Python 3.6+ installed on your system.
 
 ### Installation
 
