@@ -46,7 +46,7 @@ python pyfetch-linux.py
 ```text
 pyfetch/
 ├── pyfetch-linux.py      # System fetching logic for Linux distributions
-├── pyfetch-windows.py    # System fetching logic for Windows OS
+├── pyfetch-windows.py    # System fetching logic for Windows
 ├── .gitignore            # Git ignore rules
 ├── LICENSE               # MIT License
 └── README.md             # Project documentation
